@@ -21,11 +21,11 @@ const clientOptions = {
     unicodeVersion: '11',
 } as ClientOptions;
 const termOptions = {
-    fontSize: 13,
-    fontFamily: 'Consolas,Liberation Mono,Menlo,Courier,monospace',
+    fontSize: 12,
+    fontFamily: 'JetBrainsMono Nerd Font,Consolas,Liberation Mono,Menlo,Courier,monospace',
     theme: {
         foreground: '#d2d2d2',
-        background: '#2b2b2b',
+        background: 'transparent',
         cursor: '#adadad',
         black: '#000000',
         red: '#d81e00',
