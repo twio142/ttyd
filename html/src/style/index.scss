@@ -6,6 +6,20 @@ body {
   overflow: hidden;
 }
 
+@font-face {
+  font-family: 'NerdFont';
+  font-style: normal;
+  font-weight: normal;
+  src: url(../FiraCodeNerdFont-Regular.ttf);
+}
+
+@font-face {
+  font-family: 'NerdFont';
+  font-style: normal;
+  font-weight: bold;
+  src: url(../FiraCodeNerdFont-Bold.ttf);
+}
+
 #terminal-container {
   width: auto;
   height: 100%;
