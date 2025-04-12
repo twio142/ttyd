@@ -1,0 +1,40 @@
+name: backend-macos-arm64
+
+on:
+  push:
+    paths:
+    - ".github/workflows/backend-macos-arm64.yml"
+    - "CMakeLists.txt"
+    - "src/*"
+    - "scripts/*"
+  pull_request:
+    paths:
+    - ".github/workflows/backend-macos-arm64.yml"
+    - "CMakeLists.txt"
+    - "src/*"
+    - "scripts/*"
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install cmake json-c libwebsockets
+
+      - name: Build ttyd (darwin-arm64)
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Upload ttyd binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ttyd.darwin-arm64
+          path: build/ttyd
