@@ -6,6 +6,34 @@ body {
   overflow: hidden;
 }
 
+@font-face {
+  font-family: 'NerdFont';
+  font-style: normal;
+  font-weight: normal;
+  src: url(../FiraCodeNerdFont-Regular.ttf);
+}
+
+@font-face {
+  font-family: 'NerdFont';
+  font-style: normal;
+  font-weight: bold;
+  src: url(../FiraCodeNerdFont-Bold.ttf);
+}
+
+@font-face {
+  font-family: 'NerdFont';
+  font-style: italic;
+  font-weight: normal;
+  src: url(../JetBrainsMonoNerdFont-Italic.ttf);
+}
+
+@font-face {
+  font-family: 'NerdFont';
+  font-style: italic;
+  font-weight: bold;
+  src: url(../JetBrainsMonoNerdFont-BoldItalic.ttf);
+}
+
 #terminal-container {
   width: auto;
   height: 100%;
