@@ -22,6 +22,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Build frontend
+        run: |
+          corepack enable
+          corepack prepare yarn@stable --activate
+          yarn install
+          yarn run build
+        working-directory: html
+
       - name: Install dependencies
         run: |
           brew install json-c libwebsockets
