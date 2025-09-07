@@ -22,7 +22,7 @@ const clientOptions = {
 } as ClientOptions;
 const termOptions = {
     fontSize: 12,
-    fontFamily: 'JetBrainsMono Nerd Font,Consolas,Liberation Mono,Menlo,Courier,monospace',
+    fontFamily: 'JetBrainsMono NF,Consolas,Liberation Mono,Menlo,Courier,monospace',
     theme: {
         foreground: '#d2d2d2',
         background: 'transparent',

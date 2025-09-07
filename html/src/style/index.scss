@@ -7,31 +7,35 @@ body {
 }
 
 @font-face {
-  font-family: 'JetBrainsMono Nerd Font';
+  font-family: 'JetBrainsMono NF';
   font-style: normal;
   font-weight: normal;
-  src: url(../JetBrainsMonoNerdFont-Regular.ttf);
+  font-display: swap;
+  src: url(../JetBrainsMonoNF-Regular.woff2) format('woff2');
 }
 
 @font-face {
-  font-family: 'JetBrainsMono Nerd Font';
+  font-family: 'JetBrainsMono NF';
   font-style: normal;
   font-weight: bold;
-  src: url(../JetBrainsMonoNerdFont-Bold.ttf);
+  font-display: swap;
+  src: url(../JetBrainsMonoNF-Bold.woff2) format('woff2');
 }
 
 @font-face {
-  font-family: 'JetBrainsMono Nerd Font';
+  font-family: 'JetBrainsMono NF';
   font-style: italic;
   font-weight: normal;
-  src: url(../JetBrainsMonoNerdFont-Italic.ttf);
+  font-display: swap;
+  src: url(../JetBrainsMonoNF-Italic.woff2) format('woff2');
 }
 
 @font-face {
-  font-family: 'JetBrainsMono Nerd Font';
+  font-family: 'JetBrainsMono NF';
   font-style: italic;
   font-weight: bold;
-  src: url(../JetBrainsMonoNerdFont-BoldItalic.ttf);
+  font-display: swap;
+  src: url(../JetBrainsMonoNF-BoldItalic.woff2) format('woff2');
 }
 
 #terminal-container {
