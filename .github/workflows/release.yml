@@ -1,37 +1,152 @@
-name: release
+name: Release
 
 on:
   push:
-    tags: ["*"]
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+(-mod)?"
 
 jobs:
+  build-frontend:
+    name: Build frontend
+    uses: ./.github/workflows/frontend.yml
+
   build:
-    uses: ./.github/workflows/backend.yml
-  publish:
-    needs: [build]
-    runs-on: ubuntu-22.04
+    name: Build on ${{ matrix.arch }}
+    needs: build-frontend
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64-macos
+          - os: macos-13
+            arch: x86_64-macos
+          - os: ubuntu-latest
+            arch: x86_64-linux
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Check version bump
-        run: |
-          TAG=$(git describe --tags --match "[0-9]*.[0-9]*.[0-9]*" --abbrev=8)
-          VERSION=$(grep project CMakeLists.txt| awk '{print $3}')
-          if [ "$TAG" != "$VERSION" ]; then
-            echo "=== Version in CMakeLists.txt and git tag does not match!"
-            echo "=== Git Tag: $TAG, Version: $VERSION"
-            exit 1
-          fi
-      - uses: actions/download-artifact@v4
-      - run: |
-          mkdir build
-          for file in ttyd.*/*; do
-            target=$(echo $file | awk -F/ '{print $1}')
-            [[ $file == *.exe ]] && target="$target.exe"
-            mv $file build/$target
-          done
-          pushd build; sha256sum ttyd.* > SHA256SUMS; popd
-      - uses: ncipollo/release-action@v1
+      - name: Download frontend header
+        uses: actions/download-artifact@v4
         with:
-          artifacts: build/*
-          allowUpdates: true
-          draft: true
+          name: frontend-header
+          path: src/
+
+      # macOS steps
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install json-c libwebsockets
+      - name: Build ttyd (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make -j$(sysctl -n hw.ncpu)
+
+      # Linux steps
+      - name: Install build packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake build-essential cmake curl file libtool
+      - name: Build ttyd (Linux)
+        if: runner.os == 'Linux'
+        env:
+          BUILD_TARGET: x86_64
+        run: ./scripts/cross-build.sh
+
+      - name: Archive binary
+        run: tar -czf ttyd-${{ matrix.arch }}.tar.gz -C build ttyd
+
+      - name: Upload ttyd binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ttyd-${{ matrix.arch }}.tar.gz
+          path: ttyd-${{ matrix.arch }}.tar.gz
+
+  release:
+    name: Create release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: |
+            dist/ttyd-*.tar.gz
+          fail_on_unmatched_files: true
+
+  update-tap:
+    name: Update homebrew tap
+    needs: release
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download release assets and calculate SHAs
+        id: checksums
+        run: |
+          set -eo pipefail
+
+          RELEASE_URL="https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}"
+          ASSETS=$(gh api "$RELEASE_URL" | jq -r '.assets[] | .browser_download_url')
+
+          for asset_url in ${ASSETS}; do
+            if [[ "$asset_url" == *"ttyd-arm64-macos.tar.gz"* ]]; then
+              curl -sL "$asset_url" -o ttyd-arm64-macos.tar.gz
+              SHA_ARM64=$(shasum -a 256 ttyd-arm64-macos.tar.gz | awk '{print $1}')
+              echo "sha_arm64_macos=${SHA_ARM64}" >> $GITHUB_OUTPUT
+            elif [[ "$asset_url" == *"ttyd-x86_64-macos.tar.gz"* ]]; then
+              curl -sL "$asset_url" -o ttyd-x86_64-macos.tar.gz
+              SHA_X86_64=$(shasum -a 256 ttyd-x86_64-macos.tar.gz | awk '{print $1}')
+              echo "sha_x86_64_macos=${SHA_X86_64}" >> $GITHUB_OUTPUT
+            elif [[ "$asset_url" == *"ttyd-x86_64-linux.tar.gz"* ]]; then
+              curl -sL "$asset_url" -o ttyd-x86_64-linux.tar.gz
+              SHA_X86_64_LINUX=$(shasum -a 256 ttyd-x86_64-linux.tar.gz | awk '{print $1}')
+              echo "sha_x86_64_linux=${SHA_X86_64_LINUX}" >> $GITHUB_OUTPUT
+            fi
+          done
+
+      - name: Check out tap repository
+        uses: actions/checkout@v5
+        with:
+          repository: twio142/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Generate formula file
+        run: |
+          cd homebrew-tap
+          VERSION="${{ github.ref_name }}"
+          TEMPLATE_FILE="Formula/ttyd.rb.template"
+          FORMULA_FILE="Formula/ttyd.rb"
+          sed -e "s/%%VERSION%%/${VERSION#v}/g" \
+              -e "s/%%SHA_ARM64_MACOS%%/${{ steps.checksums.outputs.sha_arm64_macos }}/g" \
+              -e "s/%%SHA_X86_64_MACOS%%/${{ steps.checksums.outputs.sha_x86_64_macos }}/g" \
+              -e "s/%%SHA_X86_64_LINUX%%/${{ steps.checksums.outputs.sha_x86_64_linux }}/g" \
+              ${TEMPLATE_FILE} > ${FORMULA_FILE}
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          commit-message: "chore: bump ttyd to ${{ github.ref_name }}"
+          title: "Bump ttyd to ${{ github.ref_name }}"
+          body: "Automated release for ttyd version ${{ github.ref_name }}"
+          branch: "bump-ttyd-${{ github.ref_name }}"
+          base: main
+          delete-branch: true
+          add-paths: "Formula/ttyd.rb"

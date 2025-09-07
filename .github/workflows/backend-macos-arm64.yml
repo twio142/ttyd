@@ -3,42 +3,42 @@ name: backend-macos-arm64
 on:
   push:
     paths:
-    - ".github/workflows/backend-macos-arm64.yml"
-    - "CMakeLists.txt"
-    - "src/*"
-    - "scripts/*"
+      - "CMakeLists.txt"
+      - "src/*"
+      - "scripts/*"
+      - "html/**"
   pull_request:
     paths:
-    - ".github/workflows/backend-macos-arm64.yml"
-    - "CMakeLists.txt"
-    - "src/*"
-    - "scripts/*"
+      - "CMakeLists.txt"
+      - "src/*"
+      - "scripts/*"
+      - "html/**"
   workflow_call:
+  workflow_dispatch:
 
 jobs:
+  build-frontend:
+    name: Build frontend
+    uses: ./.github/workflows/frontend.yml
+
   build:
+    needs: build-frontend
     runs-on: macos-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - name: Download frontend header
+        uses: actions/download-artifact@v4
         with:
-          node-version: 18
-
-      - name: Build frontend
-        run: |
-          corepack enable
-          corepack prepare yarn@stable --activate
-          yarn install
-          yarn run build
-        working-directory: html
+          name: frontend-header
+          path: src/
 
       - name: Install dependencies
         run: |
           brew install json-c libwebsockets
 
-      - name: Build ttyd (darwin-arm64)
+      - name: Build ttyd (arm64-macos)
         run: |
           mkdir build
           cd build
@@ -48,5 +48,5 @@ jobs:
       - name: Upload ttyd binary
         uses: actions/upload-artifact@v4
         with:
-          name: ttyd.darwin-arm64
+          name: ttyd.arm64-macos
           path: build/ttyd

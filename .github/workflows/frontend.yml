@@ -1,23 +1,20 @@
 name: frontend
 
 on:
-  push:
-    paths:
-    - ".github/workflows/frontend.yml"
-    - "html/**"
-  pull_request:
-    paths:
-    - ".github/workflows/frontend.yml"
-    - "html/**"
+  workflow_call:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: "yarn"
+          cache-dependency-path: html/yarn.lock
       - name: Run yarn install, check and build
         run: |
           corepack enable
@@ -26,3 +23,8 @@ jobs:
           yarn run check
           yarn run build
         working-directory: html
+      - name: Upload frontend header artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-header
+          path: src/html.h
