@@ -1,0 +1,89 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      SHA256_arm64_macos:
+        description: 'SHA256 checksum for arm64-macos binary'
+        value: ${{ jobs.build.outputs.SHA256_arm64_macos }}
+      SHA256_x86_64_macos:
+        description: 'SHA256 checksum for x86_64-macos binary'
+        value: ${{ jobs.build.outputs.SHA256_x86_64_macos }}
+      SHA256_x86_64_linux:
+        description: 'SHA256 checksum for x86_64-linux binary'
+        value: ${{ jobs.build.outputs.SHA256_x86_64_linux }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-frontend:
+    name: Build frontend
+    uses: ./.github/workflows/frontend.yml
+
+  build:
+    name: Build on ${{ matrix.arch }}
+    needs: build-frontend
+    outputs:
+      SHA256_arm64_macos: ${{ steps.checksum.outputs.SHA256_arm64_macos }}
+      SHA256_x86_64_macos: ${{ steps.checksum.outputs.SHA256_x86_64_macos }}
+      SHA256_x86_64_linux: ${{ steps.checksum.outputs.SHA256_x86_64_linux }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64-macos
+          - os: macos-13
+            arch: x86_64-macos
+          - os: ubuntu-latest
+            arch: x86_64-linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download frontend header
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-header
+          path: src/
+
+      # macOS steps
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install json-c libwebsockets
+      - name: Build ttyd (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir build
+          cd build
+          cmake ..
+          make -j$(sysctl -n hw.ncpu)
+
+      # Linux steps
+      - name: Install build packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake build-essential cmake curl file libtool
+      - name: Build ttyd (Linux)
+        if: runner.os == 'Linux'
+        env:
+          BUILD_TARGET: x86_64
+        run: ./scripts/cross-build.sh
+
+      - name: Archive binary
+        run: tar -czvf ttyd-${{ matrix.arch }}.tar.gz -C build ttyd
+
+      - name: Calculate SHA256
+        id: checksum
+        run: |
+          SHA256=$(shasum -a 256 ttyd-${{ matrix.arch }}.tar.gz | awk '{print $1}')
+          var=${{ matrix.arch }}
+          var=SHA256_${var//-/_}
+          echo "${var}=$SHA256" >> $GITHUB_OUTPUT
+
+      - name: Upload ttyd binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ttyd-${{ matrix.arch }}.tar.gz
+          path: ttyd-${{ matrix.arch }}.tar.gz
